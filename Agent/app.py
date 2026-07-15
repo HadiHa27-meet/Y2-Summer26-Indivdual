@@ -29,7 +29,7 @@ def run_chat():
     - End with one follow-up question.
     The user's goal is {goal}
 
-    Score every response the user gives on a scale of 1-10 with 10 being the best. Add it in this fasion exactly: "Score: 7" at the end of your response. Do not include any other text in the score line. The score should be based on how well the user is progressing towards their goal and how well they are following your advice.
+    Score every response the user gives on a scale of 1-10 with 10 being the best. Add it in this fasion exactly: "Score: 7" at the end of your response. Do not include any other text in the score line. The score should be based on how well the user is progressing towards their goal and how well they are following your advice. Do this for every response unless its a command like 'exit', 'reset', 'summary' or 'average score'
     """
     #If I remove the response formatting from the system message the AI will start answering in very different ways to what I think fits the users the best
     print("Hello! I am MessiGPT, your personal football coach. I am here to help you improve your football skills and achieve your goals. Insert 'exit' to quit or 'reset' to delete chat history or 'summary' to get a summary of the conversation or 'average score' to see your average performance. Please tell me about your current skill level and position.")
@@ -57,6 +57,14 @@ def run_chat():
             )
             print(response.content[0].text)
             continue
+        if user_input.lower() == "average score":
+            if scores != []:
+                average_score = sum(scores) / len(scores)
+                print(f"Average score so far: {average_score:.2f}")
+                continue
+            else:
+                print("No scores available yet.")
+                continue 
         history.append({'role': 'user', 'content': user_input})
             #Without this line, the code wont save the user's input and send it back to the AI. The input tokens will increase by less each prompt
 
@@ -69,24 +77,16 @@ def run_chat():
             messages=history
             )
 
-        if user_input.lower() != "average score" and user_input.lower() != "summary" and user_input.lower() != "reset" and user_input.lower() != "exit":
-            reply = response.content[0].text
-            lines = reply.split('\n')
-            for line in lines:
-                if line.startswith('Score:'):
-                    score = int(line.split(':')[1].strip())
-                    scores.append(score)
-                    #without this line the whole avarage score function will basically become useless
-                    print(f"Score for this turn: {score}")
-                    break
-        if user_input.lower() == "average score":
-            if scores != []:
-                average_score = sum(scores) / len(scores)
-                print(f"Average score so far: {average_score:.2f}")
-                continue
-            else:
-                print("No scores available yet.")
-                continue 
+        reply = response.content[0].text
+        lines = reply.split('\n')
+        for line in lines:
+            if line.startswith('Score:'):
+                score = int(line.split(':')[1].strip())
+                scores.append(score)
+                #without this line the whole avarage score function will basically become useless
+                print(f"Score for this turn: {score}")
+                break
+
         print(f'Claude: {reply}')
         input_tokens = response.usage.input_tokens
         output_tokens = response.usage.output_tokens
