@@ -8,12 +8,32 @@ load_dotenv()
 client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 def run_chat():
-    tokens_used_1 = 0
-    print('You: (type exit to quit)')
-    personality = input("Choose the personality you would like your AI assistant to be, for example humorous, professional, goofy, etc. ")
-    system_message = f"You are a {personality} AI assistant. Answer the users requests in a way that fits this personality."
     history = []
+    tokens_used_1 = 0
+    scores = []
     turn  = len(history) + 1
+    goal = input("What is your goal in football? ")
+    system_message = f"""
+    You are MessiGPT, an agent meant to help give students advice on their football skills.
+
+    Your job is to provide helpful and meaningful feedback for the student, along with a curated training plan.
+
+    Rules:
+    - Always ask the user for their current skill level and position before giving advice
+    - Always ask the user for their goals and what they want to achieve in football
+    - Never give advice that is unsafe or could lead to injury
+
+    Response format:
+    - Start with a one-sentence summary of what the user said.
+    - Then give your response.
+    - End with one follow-up question.
+    The user's goal is {goal}
+
+    Score every response the user gives on a scale of 1-10 with 10 being the best. Add it in this fasion exactly: "Score: 7" at the end of your response. Do not include any other text in the score line. The score should be based on how well the user is progressing towards their goal and how well they are following your advice.
+    """
+    #If I remove the response formatting from the system message the AI will start answering in very different ways to what I think fits the users the best
+    print("Hello! I am MessiGPT, your personal football coach. I am here to help you improve your football skills and achieve your goals. Insert 'exit' to quit or 'reset' to delete chat history or 'summary' to get a summary of the conversation or 'average score' to see your average performance. Please tell me about your current skill level and position.")
+
     while True:
         user_input = input(f"Turn {turn} You: ")
 
@@ -22,23 +42,51 @@ def run_chat():
         #If the break wasn't here the code would just continue to run even when the user types exit
         if user_input.lower() == 'reset':
             history = []
-            turn = 1
             print("Your conversation history is now clean!!.")
+            turn = 1
             continue
-
+        if user_input.lower() == 'summary':
+            response = client.messages.create(
+                model='claude-haiku-4-5-20251001',
+                max_tokens=300,
+                #If max tokens becomes 50 or lower, the reply will be extremely short or will cut off
+                temperature=1,
+                system=system_message,
+                #Without this line the code will run but it will have no personality. It will just be like any other chatbot
+                messages=history + [{'role': 'user', 'content': 'Please summarize the conversation so far.'}]
+            )
+            print(response.content[0].text)
+            continue
         history.append({'role': 'user', 'content': user_input})
-        #Without this line, the code wont save the user's input and send it back to the AI. The input tokens will increase by less each prompt
+            #Without this line, the code wont save the user's input and send it back to the AI. The input tokens will increase by less each prompt
 
         response = client.messages.create(
             model='claude-haiku-4-5-20251001',
             max_tokens=300,
-            temperature=0.7,
+            temperature=1,
             #Without this line, the code will still run, but the personality of the bot will be of, because it doesn't know how random or strict it should be
             system=system_message,
             messages=history
-        )
+            )
 
-        reply = response.content[0].text
+        if user_input.lower() != "average score" and user_input.lower() != "summary" and user_input.lower() != "reset" and user_input.lower() != "exit":
+            reply = response.content[0].text
+            lines = reply.split('\n')
+            for line in lines:
+                if line.startswith('Score:'):
+                    score = int(line.split(':')[1].strip())
+                    scores.append(score)
+                    #without this line the whole avarage score function will basically become useless
+                    print(f"Score for this turn: {score}")
+                    break
+        if user_input.lower() == "average score":
+            if scores != []:
+                average_score = sum(scores) / len(scores)
+                print(f"Average score so far: {average_score:.2f}")
+                continue
+            else:
+                print("No scores available yet.")
+                continue 
         print(f'Claude: {reply}')
         input_tokens = response.usage.input_tokens
         output_tokens = response.usage.output_tokens
@@ -66,3 +114,7 @@ run_chat()
 #Lab 2 reflection question 1: Something that exponentially grows like the cost of a message on real life is the price of housing, especially in Jeruslame. Real estate always grows in value, and the more time you give it, the higher the price of it becomes
 #Lab 2 reflection question 2: This will be under each of the corresponding lines
 #Lab 2 reflection question 3: One bug that I faced is whe I tries to use .total for the sum of the tokens instead of just using an operation to add the input and output tokens
+#Lab 3 reflection question 1: It's like the roots of a tree. We can't see them but they determine how the tree looks and acts
+#Lab 3 reflection question 2: This will be under each of the corresponding lines
+#Lab 3 reflection question 3: One bug I faced was that the bot would give me scores for the prompt messages like exit or summary
+#Lab 3 bonus reflection question: I think my analogy still makes sense. To understand a perrson's actions, you need their entire history.
